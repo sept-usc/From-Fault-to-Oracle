@@ -1,10 +1,16 @@
 # CCS2026 Artifacts - From Fault to Oracle: Breaking Google Pixel TPU Hardware Memory Isolation via Trusted Deserialization Faults
 
+<p>
+  <img src="badges/artifacts_available_v1_1.png" alt="ACM Artifacts Available" height="100">
+  <img src="badges/artifacts_evaluated_functional_v1_1.png" alt="ACM Artifacts Evaluated – Functional" height="100">
+  <img src="badges/results_reproduced_v1_1.png" alt="ACM Results Reproduced" height="100">
+</p>
+
 [Artifact Evaluation appendix (PDF)](ccs2026-From-fault-to-oracle_final_version.pdf) · [LaTeX source](ccs2026-ae-template.tex)
 
 This repository contains the artifacts of our ACM CCS 2026 paper. They support three stages: acquire two EdgeTPU memory regions from a prepared Pixel 9a, import the resulting dump logs into IDA and recover candidate functions, and scan the reconstructed firmware for candidate fault-oracle memory-access sites. The PDF is the formal artifact appendix; this README gives the commands and checks for each stage.
 
-The artifact was awarded the ACM CCS 2026 **Artifacts Available**, **Artifacts Evaluated — Functional**, and **Artifacts Reproduced** badges.
+The artifact was awarded the ACM CCS 2026 **Artifacts Available**, **Artifacts Evaluated – Functional**, and **Results Reproduced** badges.
 
 You can run the complete workflow from Stage 1, or start from one of the supplied intermediate artifacts:
 
@@ -33,6 +39,7 @@ A complete Stage 1 acquisition is deliberately throttled and takes **more than 1
 | `edgetpu-rio_eval_re.fw.i64` | Prepared IDA Pro 9.2 database containing reconstructed on-chip code and firmware analysis |
 | `Public_artifacts/faultoracle_scanner_mc.py` | Scans configured handlers for candidate fault-oracle memory-access sites |
 | `ccs2026-From-fault-to-oracle_final_version.pdf` / `ccs2026-ae-template.tex` | Artifact appendix and its LaTeX source |
+| `badges/` | ACM artifact badges awarded at CCS 2026 |
 
 ---
 
