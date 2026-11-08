@@ -1,0 +1,344 @@
+\documentclass[nonacm,sigconf]{acmart}
+\usepackage{paralist}
+\usepackage{xurl}
+\settopmatter{printacmref=false}
+\title{From Fault to Oracle: Breaking Google Pixel TPU Hardware Memory
+Isolation via Trusted Deserialization Faults}
+
+\author{Minghao Lin}
+\email{mlin7282@usc.edu}
+\affiliation{%
+  \institution{University of Southern California}
+  \city{Los Angeles}
+  \state{California}
+  \country{USA}}
+
+\author{Guanxing Wen}
+\email{guanxing.wen@certik.com}
+\affiliation{%
+  \institution{Certified Kernel Tech LLC}
+  \city{New York}
+  \state{New York}
+  \country{USA}}
+
+\author{Haoxuan Xu}
+\email{xuhaoxua@usc.edu}
+\affiliation{%
+  \institution{University of Southern California}
+  \city{Los Angeles}
+  \state{California}
+  \country{USA}}
+
+\author{Yuzhou Fang}
+\email{yuzhou.fang@usc.edu}
+\affiliation{%
+  \institution{University of Southern California}
+  \city{Los Angeles}
+  \state{California}
+  \country{USA}}
+
+\author{Nanzi Yang}
+\email{nyang@odu.edu}
+\affiliation{%
+  \institution{Old Dominion University}
+  \city{Norfolk}
+  \state{Virginia}
+  \country{USA}}
+
+\author{Xiaokuan Zhang}
+\email{xiaokuan@gmu.edu}
+\affiliation{%
+  \institution{George Mason University}
+  \city{Fairfax}
+  \state{Virginia}
+  \country{USA}}
+
+\author{Yanan Guo}
+\email{yanan.guo@rochester.edu}
+\affiliation{%
+  \institution{University of Rochester}
+  \city{Rochester}
+  \state{New York}
+  \country{USA}}
+
+\author{Zhuo Zhang}
+\email{zz@cs.columbia.edu}
+\affiliation{%
+  \institution{Columbia University}
+  \city{New York}
+  \state{New York}
+  \country{USA}}
+
+\author{Mengyuan Li}
+\email{mli49061@usc.edu}
+\affiliation{%
+  \institution{University of Southern California}
+  \city{Los Angeles}
+  \state{California}
+  \country{USA}}
+
+\renewcommand{\shortauthors}{Minghao Lin et al.}
+\newcommand{\artifactfile}[1]{\path{#1}}
+\begin{document}
+\maketitle
+\appendix
+\section{Artifact Appendix}
+
+\subsection{Abstract}
+The artifact provides a three-stage EdgeTPU firmware-analysis workflow:
+acquiring memory dumps on a prepared Pixel~9a; importing the dumps into
+IDA, recovering candidate functions, and recomputing Tables~3--4; and
+scanning the reconstructed firmware for candidate fault-oracle
+memory-access gadgets. The package includes acquisition source and
+binaries, two pre-collected reference logs, a firmware image, IDAPython
+scripts, and a prepared IDA Pro~9.2 database. Reviewers can start from
+the device, the supplied logs, or the prepared database.
+IDA and Hex-Rays are proprietary dependencies and are not bundled.
+
+\subsection{Description \& Requirements}
+The root \artifactfile{README.md} documents all commands and expected
+output formats. \artifactfile{POC/DumpAuto_stable/} contains
+\artifactfile{runner}, the \artifactfile{cracktpu} acquisition helper,
+their sources, and \artifactfile{compile.sh}. \artifactfile{Public_artifacts/}
+contains the firmware, the pre-collected dump logs, the importer, the
+function-recovery script, \artifactfile{table3.py}, \artifactfile{table4.py},
+and the scanner. The prepared database is
+\artifactfile{edgetpu-rio_eval_re.fw.i64} at the package root.
+
+\subsubsection{Security, privacy, and ethical concerns}
+Acquisition requires root, stops the EdgeTPU logging service, and can
+reboot the device or interrupt SSH. Use the prepared review device or
+an authorized test device. After reconnecting, re-enter root and stop
+logging before resuming; restore logging afterward. Import and recovery
+modify the database, so use a working copy. Scanner reports are
+candidates, not automatically confirmed vulnerabilities.
+
+\subsubsection{How to access}
+The artifact is released at
+\url{https://github.com/sept-usc/From-Fault-to-Oracle}. Remote access to
+the prepared Pixel~9a was offered only during artifact evaluation and is
+not part of the release. Offline stages need no device connection.
+
+\subsubsection{Hardware dependencies}
+Live acquisition uses the authors' prepared, rooted Pixel~9a with access
+to \artifactfile{/dev/edgetpu-soc}; this physical device is accessed
+remotely and shared among evaluators. Other devices or firmware builds
+are not assumed compatible. Offline evaluation uses a workstation
+capable of running IDA Pro~9.2.
+
+\subsubsection{Software dependencies}
+IDA Pro~9.2 with IDAPython is required; Stage~3 and the decompilation
+metric of Table~4 also need a licensed ARM Hex-Rays decompiler (without
+it, that metric is N/A). Remote access requires Tailscale and SSH.
+Rebuilding requires the Android NDK; deploying to a locally connected
+device requires ADB. The build script uses \texttt{darwin-x86\_64} and
+\artifactfile{aarch64-linux-android34-clang}; adjust the NDK host path on
+other operating systems. SSH access does not imply ADB access.
+
+\subsubsection{Benchmarks}
+Inputs are \artifactfile{Public_artifacts/edgetpu-rio.fw}, the prepared
+database, and two pre-collected logs:
+\artifactfile{0x0ff00000_0x0ff0E4FF_dump.log} (14,656 words; 2,175 tagged)
+and \artifactfile{0x10000000_0x1000ea80_dump.log} (15,009 words; 2,150 tagged).
+Records contain an address and a 32-bit value, optionally tagged
+\texttt{cache\_unstable} or, for words rebuilt by the neighboring-address
+fallback, \texttt{flag\_insurance\_operation\_*}. These counts describe
+bundled inputs; unstable locations need not match byte for byte in a
+fresh acquisition.
+
+\subsection{Set Up}
+\subsubsection{Installation}
+Extract the package and install the dependencies above. For device
+acquisition, the helpers are already deployed on the prepared Pixel and
+prebuilt copies ship in \artifactfile{POC/DumpAuto_stable/}, so no build is
+normally needed. To rebuild, set \texttt{NDK} (we used r26.1.10909125) and run
+\texttt{sh compile.sh} in \artifactfile{POC/DumpAuto_stable/}. The script
+runs \texttt{adb push} after each build; without ADB, which Tailscale access
+does not provide, both pushes fail, but the binaries are still built. Copy
+them with \texttt{scp -P 8022} to the SSH user's home directory; then, from
+the root shell, place them in \artifactfile{/data/local/tmp/} and make them
+executable. README Section~1.2 gives both deployment paths and the
+checksums of the bundled binaries. After logging in to the prepared Pixel via SSH,
+run \texttt{su} to enter a root shell, then run
+\texttt{stop edgetpu\_logging}; enter \artifactfile{/data/local/tmp/},
+make both helpers executable, and create \artifactfile{review-dumps/}.
+The firmware uses 32-bit ARM in little-endian mode. For a fresh IDA
+import, select ARM little-endian, set the instruction set to
+\textbf{32-bit}, and load the firmware at
+\textbf{base address \texttt{0x0ffff000}}. Alternatively, open a copy
+of the prepared \texttt{.i64} directly; do not rebase or reimport it.
+
+\subsubsection{Basic test}
+For the shortest offline check, open the prepared database, wait for
+analysis, and execute \artifactfile{Public_artifacts/faultoracle_scanner_mc.py}
+via \texttt{File > Script file}. The IDA output window should show
+per-handler reports and end with
+\texttt{TOTAL sites (after per-def-site dedup): ...}.
+Check for \texttt{no function at} or \texttt{gen\_microcode failed};
+a final total alone does not prove that every handler was analyzed.
+
+\subsection{Evaluation Workflow}
+\subsubsection{Major claims}
+Section, table, and figure numbers in this appendix refer to the paper;
+Table~\ref{tab:ae-mapping} belongs to this appendix.
+\begin{compactitem}
+\item[(C1)] The acquisition workflow recovers the two memory regions
+and supports resumption after interruption (E1). Paper: \S6.2 (RQ1).
+\item[(C2)] Imported dump words support firmware reconstruction and
+heuristic recovery of candidate function boundaries; the supplied inputs
+reproduce the Table~3 counts and yield Table~4 metrics consistent with
+the paper (E2). Paper: \S6.2, \S6.4.
+\item[(C3)] The microcode scanner identifies candidate fault-oracle
+memory-access sites for manual inspection (E3). Paper: \S6.3 (RQ2).
+\end{compactitem}
+
+\begin{table}[h]
+\footnotesize
+\caption{Mapping between artifact experiments and the paper.}
+\label{tab:ae-mapping}
+\begin{tabular}{@{}llp{4.5cm}@{}}
+\toprule
+Exp. & Paper section & Results reported there \\
+\midrule
+E1 & \S6.2 (RQ1) & Tables 2, 3, 4, 6; Appendices C, D \\
+E2 & \S6.2, \S6.4 & Tables 3, 4; Figure 3; Appendices C, D \\
+E3 & \S6.3 (RQ2) & Table 5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Experiments}
+E1 is deliberately throttled. The review device is shared among
+evaluators, and frequent acquisition requests, particularly under
+concurrent access, could occasionally destabilize it; \texttt{runner}
+therefore waits 2\,s between successive reads of a word. With at least
+three reads per word, a complete acquisition takes over 16\,h per
+region even without retries or reboots. Table~6 reports unthrottled
+costs, with one read per normal word. E2 and E3 start from the
+pre-collected logs and the prepared database, so reviewers need not wait
+for E1.
+
+\begin{compactitem}
+\item[(E1)] \textbf{Memory acquisition (C1; README Stage~1).}
+\emph{Paper:} \S6.2; Region~1 in Table~4 and Appendix~D, Region~2 in
+Tables~2 and~3 and Appendix~C, cost in Table~6.
+\emph{Preparation:} Connect, enter root, and stop logging as above.
+\emph{Execution:} In \artifactfile{/data/local/tmp/}, invoke
+\texttt{./runner} \texttt{START} \texttt{END} \texttt{./cracktpu} \texttt{OUTPUT} twice: first with
+\artifactfile{START=0x0ff00000}, \artifactfile{END=0x0ff0e500}; then with
+\artifactfile{START=0x10000000}, \artifactfile{END=0x1000ea84}. Use the matching log
+names under \artifactfile{review-dumps/}. \texttt{END} is exclusive and
+steps are four bytes. A word is logged after three consecutive matching
+reads; after 15 attempts, \texttt{runner} falls back to neighboring-address
+reconstruction (the paper's sliding-offset fallback). After reboot, reconnect, repeat \texttt{su} and
+\texttt{stop edgetpu\_logging}, and rerun the same command/output path.
+Runner resumes after the last valid record; use a new output path for an
+independent run, as the shared device may hold other evaluators' logs.
+Optionally, run \texttt{./cracktpu} \texttt{0x10000000} once for a timed
+read. Finish with \texttt{start edgetpu\_logging}.
+\emph{Results:} Retrieve logs and check their final word addresses:
+\texttt{0x0ff0e4fc} and \texttt{0x1000ea80}, respectively. Inspect
+tagged records and incomplete acquisitions rather than requiring
+identical values at every location. The direct run's \texttt{[TIME]}
+line gives Table~6's per-read cost.
+
+\item[(E2)] \textbf{Import, recovery, Tables~3--4 (C2; README Stage~2).}
+\emph{Paper:} \S6.2 (Tables~3 and~4, Appendices~C and~D); \S6.4 (Figure~3).
+\emph{Preparation:} Load the firmware at the stated base and save a copy.
+\emph{Execution:} Run \artifactfile{import_dump_log_to_ida.py} twice,
+selecting one supplied log each time; wait for reanalysis. Run
+\artifactfile{recover_tpu_funcs.py}, checking that \texttt{SEG\_NAME}
+(default \texttt{ROM}) names the intended segment, e.g., \texttt{.dump\_0ff}
+(\texttt{DUMP\_ROM} in the prepared database); repeat for other relevant
+segments as needed. Then open a fresh copy of the prepared database and
+run \artifactfile{table3.py} and \artifactfile{table4.py}; each prints an
+aligned table in IDA's Output window.
+\emph{Results:} Expect 14,656 and 15,009 patched words if all addresses
+are mapped; investigate malformed/unmapped records. Recovery output should
+contain \texttt{DONE --- added ... funcs total}; zero additions may reflect
+prior recovery or a wrong segment. With IDA and Hex-Rays~9.2,
+\artifactfile{table3.py} reports the pattern counts 92, 9, 39, and 5,
+matching Table~3, and \artifactfile{table4.py} reports 98.96\%, 99.52\%,
+98.66\%, 98.18\%, and 98.98\%. Because \artifactfile{recover_tpu_funcs.py}
+was reimplemented for AE, these rates differ slightly from Table~4 but
+support the paper's conclusion that the recovered firmware is amenable to
+structural analysis.
+
+\item[(E3)] \textbf{Fault-oracle scanning (C3; README Stage~3).}
+\emph{Paper:} \S6.3 (Table~5); scanner design in \S5.
+\emph{Preparation:} Use the prepared database and ARM decompiler.
+\emph{Execution:} Run the scanner as in the basic test; it analyzes
+configured \texttt{HANDLERS} at \texttt{MMAT\_LOCOPT} maturity.
+\emph{Results:} Save IDA/Hex-Rays versions, database identity, and
+per-handler output, including site addresses and deduplicated counts.
+Only Table~5's \emph{Reported} column is automated; \emph{Structurally
+valid} and \emph{Reachable} are the manual audit of \S6.3.
+Inspect reported instructions and pseudocode. Sites are fault-oracle
+candidates, not conventional ROP gadgets or proof of exploitability.
+\end{compactitem}
+
+\subsection{Notes on Reusability}
+The pre-collected logs and the prepared database allow offline evaluation
+without the Pixel. New firmware versions require reviewing segment names,
+handler addresses, and payload registers. Function recovery is heuristic;
+scanner failures must not be interpreted as absence of candidates.
+
+\subsection{Version}
+Based on the LaTeX template for artifact evaluation version 1.0.
+
+%% AUTHORSHIP AND PROVENANCE OF THIS TEMPLATE
+
+%% This template is based on CCS 2025 template. The AEC Chair for CCS 2026 was:
+%% Jérémie Decouchant, Delft University of Technology
+%% Fengwei Zhang, Southern University of Science and Technology
+%% Jun Dai, Worcester Polytechnic Institute
+
+%% This template was created by David Balenson and Ning Zhang for the ACM CCS 2025
+%%
+%% The AEC Chair for CCS 2025 was:
+%% David Balenson (USC Information Science Institute)
+%% Ning Zhang (Washington University in St. Louis)
+
+%% This template is based on CCS 2024 template, 
+%%  https://www.sigsac.org/ccs/CCS2024/assets/appendix/ccs2024-ae.zip
+%%  the AEC chair for CCS 2024 was 
+%%  Eric Eide, University of Utah
+%% the template was originally based on the "USENIX Security 2023 AE Template."
+%% https://secartifacts.github.io/usenixsec2023/appendix/usesec23-ae-latex.zip
+%%
+%% The AEC Co-chairs for USENIX Security 2023 were:
+%% Cristiano Giuffrida (Vrije Universiteit Amsterdam)
+%% Anjo Vahldiek-Oberwagner (Intel Labs)
+
+%% The USENIX Security AE template was based on the
+%% % Artifact Appendix Template for EuroSys'22 AE
+%% https://sysartifacts.github.io/eurosys2022/appendix/EuroSys22_ArtifactAppendix_template.tex
+%%
+%% The AEC Co-chairs for EuroSys 2022 were:
+%% Natacha Crooks (UC Berkeley)
+%% Solal Pirelli (EPFL)
+%% Salvatore Signorello (University of Lisbon)
+%% Anjo Vahldiek-Oberwagner (Intel Labs)
+
+%% The above were based on:
+
+%% LaTeX template for Artifact Evaluation V20220119
+%%
+%% Original Authors
+%% * Grigori Fursin (cTuning foundation, France) 2014-2020
+%% * Bruce Childers (University of Pittsburgh, USA) 2014
+%%
+%% Modified by
+%% * Clementine Maurice (CNRS, France) 2021-2022
+%% * Cristiano Giuffrida (Vrije Universiteit Amsterdam, Netherlands) 2021-2022
+%%
+%% (C) Copyright 2014-2022
+%%
+%% CC BY 4.0 license
+%%
+
+
+
+
+\end{document}
+\endinput
