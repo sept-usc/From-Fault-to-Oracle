@@ -1,19 +1,17 @@
-# EdgeTPU Firmware Recovery and Fault-Oracle Analysis Artifacts
+# CCS2026 Artifacts - From Fault to Oracle: Breaking Google Pixel TPU Hardware Memory Isolation via Trusted Deserialization Faults
 
-This artifact package supports the firmware-recovery and fault-oracle analysis workflow described in the paper.
+[Artifact Evaluation appendix (PDF)](ccs2026-From-fault-to-oracle_final_version.pdf) · [LaTeX source](ccs2026-ae-template.tex)
 
-The evaluation is organized into three stages:
+This repository contains the artifacts of our ACM CCS 2026 paper. They support three stages: acquire two EdgeTPU memory regions from a prepared Pixel 9a, import the resulting dump logs into IDA and recover candidate functions, and scan the reconstructed firmware for candidate fault-oracle memory-access sites. The PDF is the formal artifact appendix; this README gives the commands and checks for each stage.
 
-1. **Acquire EdgeTPU memory dumps on the prepared Pixel 9a** using the supplied `runner`.
-2. **Import the recovered memory dumps and recover firmware functions** using `import_dump_log_to_ida.py` and `recover_tpu_funcs.py`, then run `table3.py` and `table4.py` for the table results.
-3. **Scan the reconstructed firmware for candidate fault-oracle gadgets** using the prepared IDA database and `faultoracle_scanner_mc.py`.
+The artifact was awarded the ACM CCS 2026 **Artifacts Available**, **Artifacts Evaluated — Functional**, and **Artifacts Reproduced** badges.
 
-Reviewers may follow the complete workflow from Stage 1, or begin from one of the supplied intermediate artifacts:
+You can run the complete workflow from Stage 1, or start from one of the supplied intermediate artifacts:
 
-- To evaluate **dump import and firmware recovery**, start from **Stage 2** using the bundled pre-collected `.log` files.
-- For the **shortest offline evaluation path**, skip directly to **Stage 3** and open the supplied IDA Pro 9.2 database.
+- To reproduce **dump import and firmware recovery**, start from **Stage 2** with the bundled pre-collected `.log` files.
+- For the **shortest offline path**, go directly to **Stage 3** and open the supplied IDA Pro 9.2 database.
 
-A complete Stage 1 acquisition is deliberately throttled and takes **more than 16 hours per memory region** (Section 1.6). The offline Stages 2 and 3 need neither this acquisition nor the physical Pixel device, but they do require **IDA Pro 9.2** and the appropriate **ARM Hex-Rays decompiler** license.
+A complete Stage 1 acquisition is deliberately throttled and takes **more than 16 hours per memory region** (Section 1.6). The offline Stages 2 and 3 need neither this acquisition nor a Pixel device, but they do require **IDA Pro 9.2** and an **ARM Hex-Rays decompiler** license.
 
 ---
 
@@ -34,18 +32,19 @@ A complete Stage 1 acquisition is deliberately throttled and takes **more than 1
 | `Public_artifacts/table4.py` | Prints Table 4 structural metrics as an aligned table in IDA's Output window |
 | `edgetpu-rio_eval_re.fw.i64` | Prepared IDA Pro 9.2 database containing reconstructed on-chip code and firmware analysis |
 | `Public_artifacts/faultoracle_scanner_mc.py` | Scans configured handlers for candidate fault-oracle memory-access sites |
+| `ccs2026-From-fault-to-oracle_final_version.pdf` / `ccs2026-ae-template.tex` | Artifact appendix and its LaTeX source |
 
 ---
 
-# Evaluation Overview
+# Workflow Overview
 
-| Stage | Paper | What the reviewer checks | Required resources |
+| Stage | Paper | What it covers | Required resources |
 | --- | --- | --- | --- |
 | **Stage 1** | §6.2 (RQ1) | On-device memory acquisition and resume behavior | Prepared rooted Pixel 9a |
 | **Stage 2** | §6.2, Tables 3–4; §6.4 | Dump import, firmware recovery, and table checks | Bundled logs, firmware image, IDA Pro 9.2, ARM Hex-Rays for Table 4 |
 | **Stage 3** | §6.3 (RQ2) | Fault-oracle scanner operation and candidate-site inspection | Prepared `.i64`, IDA Pro 9.2, ARM Hex-Rays |
 
-For most reviewers, we recommend starting with **Stage 3**, then using Stage 2 or Stage 1 to inspect earlier steps in the workflow.
+We recommend starting with **Stage 3**, then using Stage 2 or Stage 1 to inspect earlier steps of the workflow.
 
 ---
 
@@ -71,7 +70,7 @@ Root access is already enabled on the prepared device. After logging in, run `su
 
 ## 1.2 Build and Deploy the Acquisition Tools
 
-`runner` and `cracktpu` are **already deployed** on the prepared Pixel 9a, and prebuilt copies are also included in `POC/DumpAuto_stable/`. Most reviewers can skip this section entirely and continue at Section 1.3.
+Prebuilt copies of `runner` and `cracktpu` are included in `POC/DumpAuto_stable/`; on the prepared review device they were **already deployed**. If the helpers are already on your device, skip this section and continue at Section 1.3.
 
 To confirm the helpers are present, run this in your SSH session:
 
@@ -246,7 +245,7 @@ cd /data/local/tmp
 
 `runner` reads the last valid address already present in the output log and resumes from the next word. A partially completed acquisition therefore does not need to restart from the beginning.
 
-For an independent run, use a new output filename or directory. Because the device is shared, the same path may already hold another evaluator's log: `runner` resumes and appends to it if it is partial, and reports `dump already complete` and exits if it is complete.
+For an independent run, use a new output filename or directory. If the device is shared, the same path may already hold another user's log: `runner` resumes and appends to it if it is partial, and reports `dump already complete` and exits if it is complete.
 
 ---
 
@@ -256,11 +255,11 @@ For each address, `runner` requests three consecutive matching reads, with a two
 
 If the value does not stabilize after 15 attempts, it attempts neighboring-address reconstruction (the paper's sliding-offset fallback). If that fallback also fails, the acquisition terminates with an error.
 
-The two-second interval is a deliberate, conservative throttle. The prepared Pixel is shared among evaluators, and we observed that frequent acquisition requests, particularly under concurrent access, could occasionally destabilize it. Since each word needs at least three reads and therefore at least two intervals (4 s), a complete acquisition takes **more than 16 hours per region** even without retries or reboots.
+The two-second interval is a deliberate, conservative throttle. The prepared review device was shared among evaluators, and we observed that frequent acquisition requests, particularly under concurrent access, could occasionally destabilize it. Since each word needs at least three reads and therefore at least two intervals (4 s), a complete acquisition takes **more than 16 hours per region** even without retries or reboots.
 
 Table 6 of the paper reports unthrottled costs and counts a single read for a normal word, so the wall-clock time of a `runner` acquisition is not comparable to it. To measure the per-read cost that Table 6 reports, run `cracktpu` directly in the root shell prepared in Section 1.3 (e.g., `./cracktpu 0x10000000`) and read its `[TIME]` line; `runner` discards this output.
 
-To reduce the evaluation burden, we bundle the pre-collected dumps (Section 1.9) so that reviewers can reproduce all subsequent analysis, starting at Stage 2, without waiting for a complete acquisition.
+To avoid this wait, we bundle the pre-collected dumps (Section 1.9), so you can reproduce all subsequent analysis, starting at Stage 2, without a complete acquisition.
 
 ---
 
@@ -283,7 +282,7 @@ For a locally connected device:
 adb pull /data/local/tmp/review-dumps ./review-dumps
 ```
 
-For remote SSH evaluation, output files created from a root shell may need their permissions adjusted before transfer via `scp` or SFTP. If needed, contact the authors through the artifact-review channel.
+Over SSH, output files created from a root shell may need their permissions adjusted before transfer via `scp` or SFTP.
 
 ---
 
@@ -319,7 +318,7 @@ The tagged records comprise 2,172 `cache_unstable` and 3 fallback records in the
 
 These counts describe the bundled reference files. A new acquisition is not expected to be byte-for-byte identical at every unstable location.
 
-Reviewers should primarily verify:
+For a new acquisition, primarily check:
 
 - address coverage,
 - successful acquisition/resume behavior, and
@@ -539,7 +538,7 @@ analysis.
 
 > **Paper:** §6.3 (RQ2) — Table 5; scanner design in §5.
 
-For the shortest evaluation path, directly open:
+For the shortest path, directly open:
 
 ```text
 edgetpu-rio_eval_re.fw.i64
@@ -547,7 +546,7 @@ edgetpu-rio_eval_re.fw.i64
 
 in **IDA Pro 9.2**.
 
-For offline evaluation, we recommend using the supplied reference dumps and prepared IDA database unless the reviewer specifically wants to reproduce the reconstruction process from Stage 1 or Stage 2.
+For offline use, we recommend the supplied reference dumps and prepared IDA database unless you specifically want to reproduce the reconstruction process from Stage 1 or Stage 2.
 
 This database already contains:
 
@@ -613,9 +612,9 @@ A run ends with output of the form:
 TOTAL sites (after per-def-site dedup): ...
 ```
 
-Reviewers can navigate to reported addresses in the IDA disassembly and pseudocode views to inspect the candidate sites.
+You can navigate to reported addresses in the IDA disassembly and pseudocode views to inspect the candidate sites.
 
-For evaluation records, we recommend saving:
+To record a run, we recommend saving:
 
 ```text
 IDA version
@@ -683,60 +682,8 @@ audit of §6.3.
 
 ---
 
-# Artifact Badge Scope
+# Notes
 
-## Artifacts Available
-
-The Tailscale/SSH review device is provided only as an **evaluation convenience** and is not a permanent artifact archive.
-
-For the **Artifacts Available** badge, the final artifact release should be deposited in a permanent public archival repository such as **Zenodo**, with a persistent identifier or DOI.
-
-The archived package should contain all redistributable evaluation materials, including:
-
-- acquisition source code,
-- IDA helper scripts,
-- bundled dump logs,
-- firmware-analysis scripts,
-- documentation, and
-- other non-sensitive artifacts required for the offline workflow.
-
-The live Pixel and temporary Tailscale access are not intended to serve as the permanent archival mechanism.
-
----
-
-## Artifacts Evaluated — Functional / Reusable
-
-The artifact provides three explicit evaluation paths:
-
-1. live memory acquisition,
-2. dump import and firmware reconstruction, and
-3. fault-oracle scanning from the prepared database.
-
-Each stage documents:
-
-- required inputs,
-- executable commands,
-- dependencies,
-- expected output format, and
-- known limitations.
-
-The bundled dumps and prepared IDA database allow the core offline analysis to be evaluated without access to the physical Pixel device.
-
-The AEC will determine whether the artifact satisfies the **Functional** or **Reusable** criteria.
-
----
-
-## Results Reproduced
-
-The artifact supports reproduction of the firmware-recovery and fault-oracle analysis workflow described in the paper.
-
-For the **Results Reproduced** badge, reviewers should be able to connect each evaluated result to:
-
-- the corresponding input artifact,
-- the command or script used,
-- the expected output, and
-- the result reported in the paper.
-
-Stages 1–3 provide these execution paths.
-
-Where hardware instability may affect exact values, particularly during live memory acquisition, we document the expected behavior and provide bundled reference artifacts for comparison.
+- The remote Tailscale/SSH review device used during artifact evaluation is not part of this release.
+- The bundled dumps and the prepared IDA database allow the core offline analysis to be reproduced without a Pixel device.
+- Where hardware instability may affect exact values, particularly during live memory acquisition, compare against the bundled reference artifacts rather than expecting identical values at every location.
